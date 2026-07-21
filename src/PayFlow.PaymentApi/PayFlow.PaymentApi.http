@@ -1,0 +1,6 @@
+@PayFlow.PaymentApi_HostAddress = http://localhost:5051
+
+GET {{PayFlow.PaymentApi_HostAddress}}/health/
+Accept: application/json
+
+###

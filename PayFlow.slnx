@@ -1,2 +1,5 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PayFlow.PaymentApi/PayFlow.PaymentApi.csproj" />
+  </Folder>
 </Solution>
