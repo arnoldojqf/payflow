@@ -48,6 +48,11 @@ services (never duplicate contract types).
 - Runs on WSL2 (Ubuntu), 8 GB RAM limit — keep Docker Compose services
   memory-constrained.
 - Build: `dotnet build` at repo root. Test: `dotnet test`.
+- Local infra: `docker compose up -d` at repo root (Postgres on
+  localhost:5432, db/user/password all `payflow`); `docker compose down`
+  to stop, `docker compose down -v` to also drop the data volume.
+  Credentials default from `docker-compose.yml`; override via `.env`
+  (see `.env.example`) and keep the `PayFlowDb` connection string in sync.
 
 ## Working style
 

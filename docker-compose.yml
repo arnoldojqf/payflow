@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: payflow-postgres
+    restart: unless-stopped
+    environment:
+      # Defaults match the PayFlowDb connection string in
+      # src/PayFlow.PaymentApi/appsettings.Development.json.
+      POSTGRES_DB: ${POSTGRES_DB:-payflow}
+      POSTGRES_USER: ${POSTGRES_USER:-payflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-payflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      # Postgres 18+ images expect a single mount at /var/lib/postgresql and
+      # store the cluster in a version-specific subdirectory (18/docker), so
+      # pg_upgrade can hardlink across majors. Mounting .../data instead makes
+      # the entrypoint abort.
+      - payflow-pgdata:/var/lib/postgresql
+    # WSL2 is capped at 8 GB shared with the distro, Docker, three future
+    # .NET services and the editor — keep Postgres on a short leash.
+    mem_limit: 512m
+    mem_reservation: 256m
+    healthcheck:
+      # -U/-d are required: without them pg_isready probes the default
+      # "postgres" role and database, which this image never creates.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  payflow-pgdata:
