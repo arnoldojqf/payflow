@@ -6,16 +6,16 @@ demonstrate production-grade distributed-systems patterns.
 
 ## Architecture
 
-Three .NET 10 services communicating via Kafka (monorepo):
+Three .NET 10 services communicating via Azure Service Bus (monorepo):
 
 - **src/PayFlow.PaymentApi** — minimal API. Receives `POST /payments`,
   validates, persists to PostgreSQL with an idempotency key, publishes
   `PaymentCreated` via transactional outbox, responds `202 Accepted`.
 - **src/PayFlow.PaymentProcessor** — worker service, no HTTP endpoints.
-  Consumes `PaymentCreated`, simulates the acquirer call (retries +
+  Subscribes to `PaymentCreated`, simulates the acquirer call (retries +
   circuit breaker via Polly), publishes `PaymentAuthorized` or
   `PaymentFailed`.
-- **src/PayFlow.WebhookDispatcher** — worker service. Consumes result
+- **src/PayFlow.WebhookDispatcher** — worker service. Subscribes to result
   events, notifies merchants via HMAC-signed webhooks with exponential
   retries and DLQ.
 
@@ -24,11 +24,16 @@ services (never duplicate contract types).
 
 ## Key decisions (do not revisit without asking)
 
-- .NET 10 (current LTS), minimal APIs, PostgreSQL, Kafka.
+- .NET 10 (current LTS), minimal APIs, PostgreSQL.
+- Azure Service Bus (topics + subscriptions) for messaging.
+- EF Core on the write path; Dapper on the read path (CQRS-style split).
 - Transactional outbox for atomic write+publish.
 - Idempotency keys on payment creation (client-supplied header).
 - At-least-once delivery + idempotent consumers.
-- Local dev via Docker Compose; Kubernetes + Terraform later (infra/).
+- Blob Storage + Azure Functions for settlement file processing.
+- Local dev via Docker Compose; AKS + Terraform (Azure provider) later
+  (infra/).
+- CI/CD via GitHub Actions.
 
 ## Conventions
 
@@ -40,7 +45,7 @@ services (never duplicate contract types).
 
 ## Environment
 
-- Runs on WSL2 (Ubuntu), 4 GB RAM limit — keep Docker Compose services
+- Runs on WSL2 (Ubuntu), 8 GB RAM limit — keep Docker Compose services
   memory-constrained.
 - Build: `dotnet build` at repo root. Test: `dotnet test`.
 
