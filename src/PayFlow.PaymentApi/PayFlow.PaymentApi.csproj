@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Declared explicitly rather than inherited from the Design package, which
+         is PrivateAssets=all and so does not flow to referencing projects. Without
+         these, a referencing project resolves EF Core down to the Npgsql
+         provider's minimum (10.0.4) and fails to bind against this assembly. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
