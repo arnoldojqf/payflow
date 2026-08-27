@@ -47,7 +47,14 @@ services (never duplicate contract types).
 
 - Runs on WSL2 (Ubuntu), 8 GB RAM limit — keep Docker Compose services
   memory-constrained.
-- Build: `dotnet build` at repo root. Test: `dotnet test`.
+- Build: `dotnet build` at repo root. Test: `dotnet test` — **requires
+  Postgres to be running first** (`docker compose up -d`). The integration
+  tests hit the real database on purpose; they do not mock it. The test
+  fixture applies EF migrations automatically, so a freshly created volume
+  needs no manual setup, and a failure to connect reports that Postgres is
+  down rather than a raw socket error.
+- `global.json` opts `dotnet test` into the Microsoft.Testing.Platform
+  runner, which xUnit v3 requires on the .NET 10 SDK.
 - Local infra: `docker compose up -d` at repo root (Postgres on
   localhost:5432, db/user/password all `payflow`); `docker compose down`
   to stop, `docker compose down -v` to also drop the data volume.

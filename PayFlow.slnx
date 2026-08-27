@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/PayFlow.PaymentApi/PayFlow.PaymentApi.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PayFlow.PaymentApi.IntegrationTests/PayFlow.PaymentApi.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

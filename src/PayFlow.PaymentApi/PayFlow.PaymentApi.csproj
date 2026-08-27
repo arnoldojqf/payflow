@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Top-level statements compile to an internal Program class, which
+         WebApplicationFactory<Program> needs to see. Granting the test project
+         access keeps Program internal instead of widening the public surface. -->
+    <InternalsVisibleTo Include="PayFlow.PaymentApi.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Declared explicitly rather than inherited from the Design package, which
          is PrivateAssets=all and so does not flow to referencing projects. Without
          these, a referencing project resolves EF Core down to the Npgsql
