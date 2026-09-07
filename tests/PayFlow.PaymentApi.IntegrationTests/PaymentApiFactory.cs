@@ -44,6 +44,34 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
     }
 
     /// <summary>
+    /// Removes everything a test wrote under its idempotency key. Shared because
+    /// a payment no longer arrives alone: it brings an outbox row, and a test that
+    /// cleans up only the payment leaves that row orphaned in the dev database.
+    /// </summary>
+    /// <remarks>
+    /// Outbox rows go first, while the payments that identify them are still
+    /// present: an outbox row carries no idempotency key of its own and is
+    /// reachable only through the payment id inside its jsonb payload.
+    /// </remarks>
+    public async Task DeleteTestDataAsync(Guid idempotencyKey)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+
+        await database.Database.ExecuteSqlAsync(
+            $"""
+             DELETE FROM "OutboxMessages"
+             WHERE "Payload" ->> 'paymentId' IN (
+                 SELECT "Id"::text FROM "Payments" WHERE "IdempotencyKey" = {idempotencyKey}
+             )
+             """);
+
+        await database.Payments
+            .Where(payment => payment.IdempotencyKey == idempotencyKey)
+            .ExecuteDeleteAsync();
+    }
+
+    /// <summary>
     /// Runs work against the same database the API writes to, on a connection of
     /// its own, so assertions observe committed state rather than anything the
     /// request pipeline still has in memory.

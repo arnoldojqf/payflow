@@ -84,8 +84,7 @@ public sealed class CreatePaymentIdempotencyTests(PaymentApiFactory factory)
 
     public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public async ValueTask DisposeAsync() =>
-        await factory.QueryDatabaseAsync(database => database.Payments
-            .Where(payment => payment.IdempotencyKey == _idempotencyKey)
-            .ExecuteDeleteAsync());
+    // The accepted payment also writes an outbox row, so cleanup can no longer be
+    // just the payment; the factory deletes both in the order they depend on.
+    public async ValueTask DisposeAsync() => await factory.DeleteTestDataAsync(_idempotencyKey);
 }
