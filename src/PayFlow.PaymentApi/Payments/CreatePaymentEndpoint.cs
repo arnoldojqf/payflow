@@ -1,8 +1,11 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using PayFlow.Contracts.Payments;
+using PayFlow.PaymentApi.Outbox;
 using PayFlow.PaymentApi.Persistence;
 using PayFlow.PaymentApi.Persistence.Configurations;
 
@@ -11,6 +14,10 @@ namespace PayFlow.PaymentApi.Payments;
 public static partial class CreatePaymentEndpoint
 {
     private const string IdempotencyKeyHeader = "Idempotency-Key";
+
+    // Web defaults give camelCase members, matching what a consumer on another
+    // stack expects off the wire rather than the C# property names.
+    private static readonly JsonSerializerOptions PayloadSerializerOptions = new(JsonSerializerDefaults.Web);
 
     public static IEndpointRouteBuilder MapPaymentEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -55,16 +62,34 @@ public static partial class CreatePaymentEndpoint
             return TypedResults.ValidationProblem(errors);
         }
 
+        // One reading of the clock for both rows: the payment's CreatedAt and the
+        // event's OccurredAt describe the same instant, so they must not differ.
+        var now = timeProvider.GetUtcNow();
+
         var payment = Payment.Create(
             idempotencyKey,
             request.Amount,
             request.Currency!,
-            timeProvider.GetUtcNow());
+            now);
+
+        var outboxMessage = OutboxMessage.Create(
+            nameof(PaymentCreated),
+            JsonSerializer.Serialize(
+                new PaymentCreated(payment.Id, payment.Amount, payment.Currency, now),
+                PayloadSerializerOptions),
+            now);
 
         database.Payments.Add(payment);
+        database.OutboxMessages.Add(outboxMessage);
 
         try
         {
+            // Both inserts go out under this one call. EF wraps a multi-statement
+            // batch in its own transaction, so the payment and its event commit
+            // together or not at all — which is the whole point of the outbox.
+            // An explicit BeginTransaction would add nothing: there is no
+            // read-then-write needing a stricter isolation level, and no second
+            // SaveChanges for a transaction to span.
             await database.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (IsIdempotencyKeyViolation(exception))
@@ -72,9 +97,13 @@ public static partial class CreatePaymentEndpoint
             // The key was already used, so this is a client retry: replay the
             // response from the original request instead of creating a duplicate.
             //
-            // The rejected insert is still tracked as Added; detaching it stops a
-            // later SaveChanges on this request-scoped context from retrying it.
+            // The rejected inserts are still tracked as Added; detaching them stops
+            // a later SaveChanges on this request-scoped context from retrying them.
+            // Both are defensive today, since this path returns without saving
+            // again — the outbox entry is detached alongside the payment so that
+            // stays true if a save is ever added below it.
             database.Entry(payment).State = EntityState.Detached;
+            database.Entry(outboxMessage).State = EntityState.Detached;
 
             var existing = await database.Payments
                 .AsNoTracking()
