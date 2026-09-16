@@ -9,8 +9,8 @@ using PayFlow.PaymentApi.Persistence;
 
 namespace PayFlow.PaymentApi.IntegrationTests;
 
-public sealed class CreatePaymentOutboxTests(PaymentApiFactory factory)
-    : IClassFixture<PaymentApiFactory>, IAsyncLifetime
+[Collection(DatabaseCollection.Name)]
+public sealed class CreatePaymentOutboxTests(PaymentApiFactory factory) : IAsyncLifetime
 {
     private const string IdempotencyKeyHeader = "Idempotency-Key";
 

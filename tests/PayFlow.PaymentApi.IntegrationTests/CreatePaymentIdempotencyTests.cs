@@ -5,8 +5,8 @@ using PayFlow.PaymentApi.Payments;
 
 namespace PayFlow.PaymentApi.IntegrationTests;
 
-public sealed class CreatePaymentIdempotencyTests(PaymentApiFactory factory)
-    : IClassFixture<PaymentApiFactory>, IAsyncLifetime
+[Collection(DatabaseCollection.Name)]
+public sealed class CreatePaymentIdempotencyTests(PaymentApiFactory factory) : IAsyncLifetime
 {
     private const string IdempotencyKeyHeader = "Idempotency-Key";
 

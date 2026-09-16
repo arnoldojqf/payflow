@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using PayFlow.PaymentApi.Outbox;
 using PayFlow.PaymentApi.Persistence;
 
 namespace PayFlow.PaymentApi.IntegrationTests;
@@ -21,7 +23,29 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         // Development keeps the API's own configuration the single source of
         // truth for the connection string instead of duplicating it here.
         builder.UseEnvironment("Development");
+
+        // The host starts every hosted service, so the real dispatcher would run
+        // against the dev database for the whole test session: it would publish
+        // to Service Bus and stamp ProcessedAt on rows the endpoint tests assert
+        // are still pending. Tests that want a dispatcher construct one
+        // themselves, with a publisher they control.
+        builder.ConfigureTestServices(services =>
+        {
+            var dispatcher = services.SingleOrDefault(service =>
+                service.ImplementationType == typeof(OutboxDispatcher));
+
+            if (dispatcher is not null)
+            {
+                services.Remove(dispatcher);
+            }
+        });
     }
+
+    /// <summary>
+    /// The pool the API itself uses, so a dispatcher built by a test reads the
+    /// same database through the same configuration.
+    /// </summary>
+    public NpgsqlDataSource DataSource => Services.GetRequiredService<NpgsqlDataSource>();
 
     public async ValueTask InitializeAsync()
     {
@@ -68,6 +92,25 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         await database.Payments
             .Where(payment => payment.IdempotencyKey == idempotencyKey)
+            .ExecuteDeleteAsync();
+    }
+
+    /// <summary>
+    /// Removes outbox rows a test wrote directly, which have no payment to be
+    /// reached through.
+    /// </summary>
+    public async Task DeleteOutboxMessagesAsync(IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        await using var scope = Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+
+        await database.OutboxMessages
+            .Where(message => ids.Contains(message.Id))
             .ExecuteDeleteAsync();
     }
 
