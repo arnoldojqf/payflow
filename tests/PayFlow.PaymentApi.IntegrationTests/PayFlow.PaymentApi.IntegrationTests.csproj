@@ -17,6 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Drives PeriodicTimer from the tests instead of waiting on a real clock. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <!-- The Service Bus credential lives in the API's user-secrets; the
+         end-to-end publish test reads it from there. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\PayFlow.PaymentApi\PayFlow.PaymentApi.csproj" />
   </ItemGroup>
 
