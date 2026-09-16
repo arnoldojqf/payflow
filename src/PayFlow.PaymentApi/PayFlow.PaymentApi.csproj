@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>a99436a8-0d4c-49db-9aa8-fece4ca96550</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +26,13 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.2" />
+    <!-- The dispatcher's read path: a claim query and two set-based updates,
+         none of which want EF's change tracker. -->
+    <PackageReference Include="Dapper" Version="2.1.86" />
   </ItemGroup>
 
   <ItemGroup>
