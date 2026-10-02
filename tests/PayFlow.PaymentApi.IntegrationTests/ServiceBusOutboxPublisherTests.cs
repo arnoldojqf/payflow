@@ -19,6 +19,9 @@ namespace PayFlow.PaymentApi.IntegrationTests;
 /// is the one that would catch a message that never arrives, or arrives
 /// unrecognisable.
 /// </remarks>
+// Needs a real Service Bus namespace, so CI leaves it out with
+// --filter-not-trait "Category=ServiceBus".
+[Trait("Category", "ServiceBus")]
 [Collection(DatabaseCollection.Name)]
 public sealed class ServiceBusOutboxPublisherTests(PaymentApiFactory factory)
 {

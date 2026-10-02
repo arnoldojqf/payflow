@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Required status check on main: keep this id and name stable.
+  build-and-test:
+    name: build-and-test
+    runs-on: ubuntu-latest
+
+    services:
+      # Same image and credentials as docker-compose.yml, so the integration
+      # tests hit the database they hit locally.
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: payflow
+          POSTGRES_USER: payflow
+          POSTGRES_PASSWORD: payflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U payflow -d payflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Overrides ConnectionStrings:PayFlowDb from appsettings.Development.json.
+      # Throwaway credentials for the service container above, not a secret.
+      ConnectionStrings__PayFlowDb: Host=localhost;Port=5432;Database=payflow;Username=payflow;Password=payflow
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # setup-dotnet's built-in cache needs packages.lock.json, which this
+      # repository does not use, so the package folder is cached directly.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      # global.json opts into Microsoft.Testing.Platform, which takes
+      # --filter-not-trait and --report-xunit-trx in place of VSTest's
+      # --filter and --logger trx.
+      - name: Test
+        run: >-
+          dotnet test --no-build -c Release
+          --filter-not-trait "Category=ServiceBus"
+          --report-xunit-trx
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: warn
